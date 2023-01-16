@@ -51,7 +51,7 @@ i32 convolve_baseline(u8 *m, i32 *f, u64 fh, u64 fw)
 
   for (u64 i = 0; i < fh; i++)
     for (u64 j = 0; j < fw; j++)
-      r += m[INDEX(i, j, W * 3)] * f[INDEX(i, j, fw)];
+      r += m[INDEX(i, j * 3, W * 3)] * f[INDEX(i, j, fw)];
   
   return r;
 }
@@ -74,12 +74,12 @@ void sobel_baseline(u8 *cframe, u8 *oframe, f32 threshold)
   for (u64 i = 0; i < (H - 3); i++)
     for (u64 j = 0; j < ((W * 3) - 3); j++)
       {
-	gx = convolve_baseline(&cframe[INDEX(i, j, W * 3)], f1, 3, 3);
-	gy = convolve_baseline(&cframe[INDEX(i, j, W * 3)], f2, 3, 3);
-      
-	mag = sqrt((gx * gx) + (gy * gy));
-	
-	oframe[INDEX(i, j, W * 3)] = (mag > threshold) ? 255 : mag;
+        gx = convolve_baseline(&cframe[INDEX(i, j, W * 3)], f1, 3, 3);
+        gy = convolve_baseline(&cframe[INDEX(i, j, W * 3)], f2, 3, 3);
+            
+        mag = sqrt((gx * gx) + (gy * gy));
+        
+        oframe[INDEX(i, j, W * 3)] = (mag > threshold) ? 255 : mag;
       }
 }
 
@@ -90,6 +90,7 @@ int main(int argc, char **argv)
   if (argc < 3)
     return printf("Usage: %s [raw input file] [raw output file]\n", argv[0]), 1;
   
+  // Idea : Create a run_benchmark function to generalize benchmarking per kernel
   //Size of a frame
   u64 size = sizeof(u8) * H * W * 3;
 
@@ -120,49 +121,49 @@ int main(int argc, char **argv)
   
   //Read & process video frames
   while ((nb_bytes = fread(cframe, sizeof(u8), H * W * 3, fpi)))
+  {
+    //
+    grayscale_weighted(cframe);
+
+    do
     {
-      //
-      grayscale_weighted(cframe);
-
-      do
-      {
         
-        //Start 
-        clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
+      //Start 
+      clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
         
-        //Put other versions here
+      //Put other versions here
         
-    #if BASELINE
-        sobel_baseline(cframe, oframe, 100.0);
-    #endif
-        //Stop
-        clock_gettime(CLOCK_MONOTONIC_RAW, &t2);
+      #if BASELINE
+          sobel_baseline(cframe, oframe, 100.0);
+      #endif
+      //Stop
+      clock_gettime(CLOCK_MONOTONIC_RAW, &t2);
         
-        //Nano seconds
-        elapsed_ns = (f64)(t2.tv_nsec - t1.tv_nsec);
+      //Nano seconds
+      elapsed_ns = (f64)(t2.tv_nsec - t1.tv_nsec);
         
-      }
-      while (elapsed_ns <= 0.0);
-      
-      //Seconds
-      elapsed_s = elapsed_ns / 1e9;
-      
-      //2 arrays
-      mib_per_s = ((f64)(nb_bytes << 1) / (1024.0 * 1024.0)) / elapsed_s;
-      
-      //
-      if (samples_count < MAX_SAMPLES)
-	      samples[samples_count++] = elapsed_ns;
-      
-      //frame number; size in Bytes; elapsed ns; elapsed s; bytes per second
-      fprintf(stdout, "%20llu; %20llu bytes; %15.3lf ns; %15.3lf MiB/s\n", frame_count, nb_bytes << 1, elapsed_ns, mib_per_s);
-      
-      // Write this frame to the output pipe
-      fwrite(oframe, sizeof(u8), H * W * 3, fpo);
-
-      //
-      frame_count++;
     }
+    while (elapsed_ns <= 0.0);
+      
+    //Seconds
+    elapsed_s = elapsed_ns / 1e9;
+      
+    //2 arrays
+    mib_per_s = ((f64)(nb_bytes << 1) / (1024.0 * 1024.0)) / elapsed_s;
+      
+    //
+    if (samples_count < MAX_SAMPLES)
+	    samples[samples_count++] = elapsed_ns;
+      
+    //frame number; size in Bytes; elapsed ns; bytes per second
+    fprintf(stdout, "%20llu; %20llu bytes; %15.3lf ns; %15.3lf MiB/s\n", frame_count, nb_bytes << 1, elapsed_ns, mib_per_s);
+      
+    // Write this frame to the output pipe
+    fwrite(oframe, sizeof(u8), H * W * 3, fpo);
+
+    //
+    frame_count++;
+  }
 
   //
   sort(samples, samples_count);
@@ -186,7 +187,11 @@ int main(int argc, char **argv)
   mib_per_s = ((f64)(size << 1) / (1024.0 * 1024.0)) / elapsed_s;
   
   //
-  fprintf(stderr, "\n%20llu bytes; %15.3lf ns; %15.3lf ns; %15.3lf ns; %15.3lf MiB/s; %15.3lf %%;\n",
+  FILE *dat = fopen("plot.dat", "w");
+  if (!dat)
+    return printf("Error: cannot open file 'plot.dat'\n"), 2;
+  // bytes, min ns, max ns, avg ns, MiB/s, stddev
+  fprintf(dat, "\n%20llu; %15.3lf; %15.3lf; %15.3lf; %15.3lf; %15.3lf;\n",
 	  (u64)(sizeof(u8) * H * W * 3) << 1,
 	  min,
 	  max,
@@ -201,6 +206,7 @@ int main(int argc, char **argv)
   //
   fclose(fpi);
   fclose(fpo);
+  fclose(dat);
 
   return  0;
 }
