@@ -51,7 +51,7 @@ i32 convolve_baseline(u8 *m, i32 *f, u64 fh, u64 fw)
 
   for (u64 i = 0; i < fh; i++)
     for (u64 j = 0; j < fw; j++)
-      r += m[INDEX(i, j, fw)] * f[INDEX(i, j, fw)];
+      r += m[INDEX(i, j, W * 3)] * f[INDEX(i, j, fw)];
   
   return r;
 }
@@ -125,23 +125,23 @@ int main(int argc, char **argv)
       grayscale_weighted(cframe);
 
       do
-	{
-	  
-	  //Start 
-	  clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
-	  
-	  //Put other versions here
-	  
-#if BASELINE
-	  sobel_baseline(cframe, oframe, 100.0);
-#endif
-	  //Stop
-	  clock_gettime(CLOCK_MONOTONIC_RAW, &t2);
-	  
-	  //Nano seconds
-	  elapsed_ns = (f64)(t2.tv_nsec - t1.tv_nsec);
-	  
-	}
+      {
+        
+        //Start 
+        clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
+        
+        //Put other versions here
+        
+    #if BASELINE
+        sobel_baseline(cframe, oframe, 100.0);
+    #endif
+        //Stop
+        clock_gettime(CLOCK_MONOTONIC_RAW, &t2);
+        
+        //Nano seconds
+        elapsed_ns = (f64)(t2.tv_nsec - t1.tv_nsec);
+        
+      }
       while (elapsed_ns <= 0.0);
       
       //Seconds
@@ -152,7 +152,7 @@ int main(int argc, char **argv)
       
       //
       if (samples_count < MAX_SAMPLES)
-	samples[samples_count++] = elapsed_ns;
+	      samples[samples_count++] = elapsed_ns;
       
       //frame number; size in Bytes; elapsed ns; elapsed s; bytes per second
       fprintf(stdout, "%20llu; %20llu bytes; %15.3lf ns; %15.3lf MiB/s\n", frame_count, nb_bytes << 1, elapsed_ns, mib_per_s);
