@@ -187,7 +187,7 @@ int main(int argc, char **argv)
   
   //
   fprintf(stderr, "\n%20llu bytes; %15.3lf ns; %15.3lf ns; %15.3lf ns; %15.3lf MiB/s; %15.3lf %%;\n",
-	  (sizeof(u8) * H * W * 3) << 1,
+	  (u64)(sizeof(u8) * H * W * 3) << 1,
 	  min,
 	  max,
 	  mea,
