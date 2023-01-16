@@ -11,3 +11,4 @@ sobel: sobel.c
 
 clean:
 	rm -Rf *~ sobel
+	rm -f in/input.raw out/output.raw
