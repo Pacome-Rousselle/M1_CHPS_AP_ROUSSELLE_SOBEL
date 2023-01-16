@@ -44,7 +44,8 @@ void grayscale_sampled(u8 *frame)
     }
 }
 
-//
+/* Kernels */
+// Baseline
 i32 convolve_baseline(u8 *m, i32 *f, u64 fh, u64 fw)
 {
   i32 r = 0;
@@ -52,7 +53,10 @@ i32 convolve_baseline(u8 *m, i32 *f, u64 fh, u64 fw)
   for (u64 i = 0; i < fh; i++)
     for (u64 j = 0; j < fw; j++)
       r += m[INDEX(i, j * 3, W * 3)] * f[INDEX(i, j, fw)];
-  
+  // Unrolling 4 and 8 times
+  // Try OMP on the first loop
+  // assembly (try SSE, AVX, check if AVX 512 available (must be a #define flag for that))
+  // check for intrinsincs
   return r;
 }
 
@@ -78,10 +82,21 @@ void sobel_baseline(u8 *cframe, u8 *oframe, f32 threshold)
         gy = convolve_baseline(&cframe[INDEX(i, j, W * 3)], f2, 3, 3);
             
         mag = sqrt((gx * gx) + (gy * gy));
+        //drnm2 or srnm2 on a 2-element vector could be a good replacement (gradient norm)
         
         oframe[INDEX(i, j, W * 3)] = (mag > threshold) ? 255 : mag;
       }
 }
+
+// Unroll
+// Blas
+// Vectorization
+
+
+// 
+int run_benchmark(const i8 *title,
+		   void (*kernel)(u8 *, u8 *, f32), 
+       i8 **paths);
 
 //
 int main(int argc, char **argv)
@@ -90,7 +105,18 @@ int main(int argc, char **argv)
   if (argc < 3)
     return printf("Usage: %s [raw input file] [raw output file]\n", argv[0]), 1;
   
-  // Idea : Create a run_benchmark function to generalize benchmarking per kernel
+  run_benchmark("BASE", sobel_baseline,argv);
+  
+
+  return  0;
+}
+
+int run_benchmark(const i8 *title,
+		   void (*kernel)(u8 *, u8 *, f32), 
+       i8 **paths)
+{ 
+  //Try bufferizing I/O here
+  
   //Size of a frame
   u64 size = sizeof(u8) * H * W * 3;
 
@@ -108,16 +134,16 @@ int main(int argc, char **argv)
   u8 *oframe = _mm_malloc(size, 32);
 
   //
-  FILE *fpi = fopen(argv[1], "rb"); 
-  FILE *fpo = fopen(argv[2], "wb");
+  FILE *fpi = fopen(paths[1], "rb"); 
+  FILE *fpo = fopen(paths[2], "wb");
 
   //
   if (!fpi)
-    return printf("Error: cannot open file '%s'\n", argv[1]), 2;
+    return printf("Error: cannot open file '%s'\n", paths[1]), 2;
   
   //
   if (!fpo)
-    return printf("Error: cannot open file '%s'\n", argv[2]), 2;
+    return printf("Error: cannot open file '%s'\n", paths[2]), 2;
   
   //Read & process video frames
   while ((nb_bytes = fread(cframe, sizeof(u8), H * W * 3, fpi)))
@@ -130,12 +156,9 @@ int main(int argc, char **argv)
         
       //Start 
       clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
-        
-      //Put other versions here
-        
-      #if BASELINE
-          sobel_baseline(cframe, oframe, 100.0);
-      #endif
+      
+      //Kernel
+      kernel(cframe, oframe, 100.0);
       //Stop
       clock_gettime(CLOCK_MONOTONIC_RAW, &t2);
         
@@ -156,7 +179,7 @@ int main(int argc, char **argv)
 	    samples[samples_count++] = elapsed_ns;
       
     //frame number; size in Bytes; elapsed ns; bytes per second
-    fprintf(stdout, "%20llu; %20llu bytes; %15.3lf ns; %15.3lf MiB/s\n", frame_count, nb_bytes << 1, elapsed_ns, mib_per_s);
+    //fprintf(stdout, "%20llu; %20llu bytes; %15.3lf ns; %15.3lf MiB/s\n", frame_count, nb_bytes << 1, elapsed_ns, mib_per_s);
       
     // Write this frame to the output pipe
     fwrite(oframe, sizeof(u8), H * W * 3, fpo);
@@ -191,7 +214,8 @@ int main(int argc, char **argv)
   if (!dat)
     return printf("Error: cannot open file 'plot.dat'\n"), 2;
   // bytes, min ns, max ns, avg ns, MiB/s, stddev
-  fprintf(dat, "\n%20llu; %15.3lf; %15.3lf; %15.3lf; %15.3lf; %15.3lf;\n",
+  fprintf(dat, "%10s %20llu; %15.3lf; %15.3lf; %15.3lf; %15.3lf; %15.3lf;\n",
+    title,
 	  (u64)(sizeof(u8) * H * W * 3) << 1,
 	  min,
 	  max,
@@ -207,6 +231,4 @@ int main(int argc, char **argv)
   fclose(fpi);
   fclose(fpo);
   fclose(dat);
-
-  return  0;
 }
