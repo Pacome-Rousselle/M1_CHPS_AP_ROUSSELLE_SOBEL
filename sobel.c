@@ -6,6 +6,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <emmintrin.h>
+#include <cblas.h>
+#include <clapack.h>
+#include <lapacke.h>
 
 //
 #include "common.h"
@@ -124,12 +127,47 @@ void sobel_unroll(u8 *restrict cframe, u8 *restrict oframe, f32 threshold)
         gy = convolve_unroll(&cframe[INDEX(i, j, W * 3)], f2, 3, 3);
             
         mag = sqrt((gx * gx) + (gy * gy));
-        //drnm2 or srnm2 on a 2-element vector could be a good replacement (gradient norm)
         
         oframe[INDEX(i, j, W * 3)] = (mag > threshold) ? 255 : mag;
       }
 }
+
 // Blas
+f32 convolve_blas(u8 *m, f32 *f, u64 fh, u64 fw)
+{
+  f32 r = 0;
+
+  for (u64 i = 0; i < fh; i++)
+    for (u64 j = 0; j < fw; j++)
+      r += m[INDEX(i, j * 3, W * 3)] * f[INDEX(i, j, fw)];
+  return r;
+}
+
+void sobel_blas(u8 *restrict cframe, u8 *restrict oframe, f32 threshold)
+{
+  f32 *gradient = _mm_malloc(2*sizeof(f32),32);
+  f32 mag = 0.0;
+
+  f32 f1[9] = { -1.0, 0.0, 1.0,
+		-2.0, 0.0, 2.0,
+		-1.0, 0.0, 1.0 }; //3x3 matrix
+  
+  f32 f2[9] = { -1.0, -2.0, -1.0,
+		0.0, 0.0, 0.0,
+		1.0, 2.0, 1.0 }; //3x3 matrix
+  
+  //
+  for (u64 i = 0; i < (H - 3); i++)
+    for (u64 j = 0; j < ((W * 3) - 3); j++)
+      {
+        gradient[0] = convolve_blas(&cframe[INDEX(i, j, W * 3)], f1, 3, 3);
+        gradient[1] = convolve_blas(&cframe[INDEX(i, j, W * 3)], f2, 3, 3);
+            
+        mag = cblas_snrm2(2,gradient,1);
+        
+        oframe[INDEX(i, j, W * 3)] = (mag > threshold) ? 255 : mag;
+      }
+}
 // Vectorization
 
 
@@ -147,6 +185,7 @@ int main(int argc, char **argv)
   
   run_benchmark("RESTRICT", sobel_baseline,argv);
   run_benchmark("UNROLL3", sobel_unroll, argv);
+  run_benchmark("BLAS", sobel_blas,argv);
   
 
   return  0;
