@@ -1,17 +1,9 @@
 /*
   This code performs edge detection using a Sobel filter on a video stream meant as input to a neural network
 */
-#include <time.h>
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <emmintrin.h>
-#include <cblas.h>
-#include <clapack.h>
-#include <lapacke.h>
 
 //
-#include "common.h"
+#include "kernels.h"
 
 //Convert an image to its grayscale equivalent - better color precision
 void grayscale_weighted(u8 *frame)
@@ -47,133 +39,9 @@ void grayscale_sampled(u8 *frame)
     }
 }
 
-/* Kernels */
-// Baseline
-i32 convolve_baseline(u8 *m, i32 *f, u64 fh, u64 fw)
-{
-  i32 r = 0;
-
-  for (u64 i = 0; i < fh; i++)
-    for (u64 j = 0; j < fw; j++)
-      r += m[INDEX(i, j * 3, W * 3)] * f[INDEX(i, j, fw)];
-  // Unrolling 4 and 8 times
-  // Try OMP on the first loop
-  // assembly (try SSE, AVX, check if AVX 512 available (must be a #define flag for that))
-  // check for intrinsincs
-  return r;
-}
-
-//
-void sobel_baseline(u8 *restrict cframe, u8 *restrict oframe, f32 threshold)
-{
-  i32 gx, gy;
-  f32 mag = 0.0;
-
-  i32 f1[9] = { -1, 0, 1,
-		-2, 0, 2,
-		-1, 0, 1 }; //3x3 matrix
-  
-  i32 f2[9] = { -1, -2, -1,
-		0, 0, 0,
-		1, 2, 1 }; //3x3 matrix
-  
-  //
-  for (u64 i = 0; i < (H - 3); i++)
-    for (u64 j = 0; j < ((W * 3) - 3); j++)
-      {
-        gx = convolve_baseline(&cframe[INDEX(i, j, W * 3)], f1, 3, 3);
-        gy = convolve_baseline(&cframe[INDEX(i, j, W * 3)], f2, 3, 3);
-            
-        mag = sqrt((gx * gx) + (gy * gy));
-        //drnm2 or srnm2 on a 2-element vector could be a good replacement (gradient norm)
-        
-        oframe[INDEX(i, j, W * 3)] = (mag > threshold) ? 255 : mag;
-      }
-}
-
-// Unrolling the convolution
-i32 convolve_unroll(u8 *m, i32 *f, u64 fh, u64 fw)
-{
-  i32 r = 0;
-
-  for (u64 i = 0; i < fh; i++)
-  {
-    r += m[INDEX(i, 0, W * 3)] * f[INDEX(i, 0, fw)];
-    r += m[INDEX(i, 3, W * 3)] * f[INDEX(i, 1, fw)];
-    r += m[INDEX(i, 6, W * 3)] * f[INDEX(i, 2, fw)];  
-  }
-  return r;
-}
-
-//
-void sobel_unroll(u8 *restrict cframe, u8 *restrict oframe, f32 threshold)
-{
-  i32 gx, gy;
-  f32 mag = 0.0;
-
-  i32 f1[9] = { -1, 0, 1,
-		-2, 0, 2,
-		-1, 0, 1 }; //3x3 matrix
-  
-  i32 f2[9] = { -1, -2, -1,
-		0, 0, 0,
-		1, 2, 1 }; //3x3 matrix
-  
-  //
-  for (u64 i = 0; i < (H - 3); i++)
-    for (u64 j = 0; j < ((W * 3) - 3); j++)
-      {
-        gx = convolve_unroll(&cframe[INDEX(i, j, W * 3)], f1, 3, 3);
-        gy = convolve_unroll(&cframe[INDEX(i, j, W * 3)], f2, 3, 3);
-            
-        mag = sqrt((gx * gx) + (gy * gy));
-        
-        oframe[INDEX(i, j, W * 3)] = (mag > threshold) ? 255 : mag;
-      }
-}
-
-// Blas
-f32 convolve_blas(u8 *m, f32 *f, u64 fh, u64 fw)
-{
-  f32 r = 0;
-
-  for (u64 i = 0; i < fh; i++)
-    for (u64 j = 0; j < fw; j++)
-      r += m[INDEX(i, j * 3, W * 3)] * f[INDEX(i, j, fw)];
-  return r;
-}
-
-void sobel_blas(u8 *restrict cframe, u8 *restrict oframe, f32 threshold)
-{
-  f32 *gradient = _mm_malloc(2*sizeof(f32),32);
-  f32 mag = 0.0;
-
-  f32 f1[9] = { -1.0, 0.0, 1.0,
-		-2.0, 0.0, 2.0,
-		-1.0, 0.0, 1.0 }; //3x3 matrix
-  
-  f32 f2[9] = { -1.0, -2.0, -1.0,
-		0.0, 0.0, 0.0,
-		1.0, 2.0, 1.0 }; //3x3 matrix
-  
-  //
-  for (u64 i = 0; i < (H - 3); i++)
-    for (u64 j = 0; j < ((W * 3) - 3); j++)
-      {
-        gradient[0] = convolve_blas(&cframe[INDEX(i, j, W * 3)], f1, 3, 3);
-        gradient[1] = convolve_blas(&cframe[INDEX(i, j, W * 3)], f2, 3, 3);
-            
-        mag = cblas_snrm2(2,gradient,1);
-        
-        oframe[INDEX(i, j, W * 3)] = (mag > threshold) ? 255 : mag;
-      }
-}
-// Vectorization
-
-
 // 
 int run_benchmark(const i8 *title,
-		   void (*kernel)(u8 *restrict, u8 *restrict, f32), 
+		   void (*kernel)(u8 *, u8 *, f32), 
        i8 **paths);
 
 //
@@ -182,17 +50,25 @@ int main(int argc, char **argv)
   //
   if (argc < 3)
     return printf("Usage: %s [raw input file] [raw output file]\n", argv[0]), 1;
-  
-  run_benchmark("RESTRICT", sobel_baseline,argv);
+
+  fprintf(stdout, "%10s; %10s; %15s; %15s; %15s; %10s; %26s;\n",
+  "Kernel",
+  "nb bytes",
+  "min ns",
+  "max ns",
+  "mean ns",
+  "MiB/s",
+  "stddev(%)");
+
+  run_benchmark("BASE", sobel_baseline,argv);
   run_benchmark("UNROLL3", sobel_unroll, argv);
-  run_benchmark("BLAS", sobel_blas,argv);
-  
+  run_benchmark("MATHS", sobel_maths,argv);
 
   return  0;
 }
 
 int run_benchmark(const i8 *title,
-		   void (*kernel)(u8 *restrict, u8 *restrict, f32), 
+		   void (*kernel)(u8 *, u8 *, f32), 
        i8 **paths)
 { 
   //Try bufferizing I/O here
@@ -290,10 +166,7 @@ int run_benchmark(const i8 *title,
   mib_per_s = ((f64)(size << 1) / (1024.0 * 1024.0)) / elapsed_s;
   
   // bytes, min ns, max ns, avg ns, MiB/s, stddev
-  FILE *dat = fopen("dat/plot.dat", "a");
-  if (!dat)
-    return printf("Error: cannot open file 'plot.dat'\n"), 2;
-  fprintf(dat, "%10s; %10llu; %15.3lf; %15.3lf; %15.3lf; %15.3lf; %15.3lf;\n",
+  fprintf(stdout, "%10s; %10llu; %15.3lf; %15.3lf; %15.3lf; %15.3lf; %15.3lf;\n",
     title,
 	  (u64)(sizeof(u8) * H * W * 3) << 1,
 	  min,
@@ -309,5 +182,5 @@ int run_benchmark(const i8 *title,
   //
   fclose(fpi);
   fclose(fpo);
-  fclose(dat);
+  
 }
