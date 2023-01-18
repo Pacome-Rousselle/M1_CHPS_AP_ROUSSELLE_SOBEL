@@ -8,11 +8,12 @@ set auto x
 
 set ylabel "MiB/s" textcolor "black"
 
-set style data histogram
+set style data histograms
+set style histogram errorbars gap 0 lw 2
 set style fill solid border -1
 set boxwidth 0.5 absolute
 
 set yrange [0:500]
 set xtic rotate by -45 scale 0 
 
-plot "dat/plot.dat" u  6:xtic(1) t "lorem" lc "red"
+plot "dat/plot.dat" u  6:7:xtic(1) t "lorem" lc "red"
