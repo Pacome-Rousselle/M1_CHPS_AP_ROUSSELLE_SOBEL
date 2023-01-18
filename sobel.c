@@ -61,7 +61,7 @@ i32 convolve_baseline(u8 *m, i32 *f, u64 fh, u64 fw)
 }
 
 //
-void sobel_baseline(u8 *cframe, u8 *oframe, f32 threshold)
+void sobel_baseline(u8 *restrict cframe, u8 *restrict oframe, f32 threshold)
 {
   i32 gx, gy;
   f32 mag = 0.0;
@@ -88,14 +88,54 @@ void sobel_baseline(u8 *cframe, u8 *oframe, f32 threshold)
       }
 }
 
-// Unroll
+// Unrolling the convolution
+i32 convolve_unroll(u8 *m, i32 *f, u64 fh, u64 fw)
+{
+  i32 r = 0;
+
+  for (u64 i = 0; i < fh; i++)
+  {
+    r += m[INDEX(i, 0, W * 3)] * f[INDEX(i, 0, fw)];
+    r += m[INDEX(i, 3, W * 3)] * f[INDEX(i, 1, fw)];
+    r += m[INDEX(i, 6, W * 3)] * f[INDEX(i, 2, fw)];  
+  }
+  return r;
+}
+
+//
+void sobel_unroll(u8 *restrict cframe, u8 *restrict oframe, f32 threshold)
+{
+  i32 gx, gy;
+  f32 mag = 0.0;
+
+  i32 f1[9] = { -1, 0, 1,
+		-2, 0, 2,
+		-1, 0, 1 }; //3x3 matrix
+  
+  i32 f2[9] = { -1, -2, -1,
+		0, 0, 0,
+		1, 2, 1 }; //3x3 matrix
+  
+  //
+  for (u64 i = 0; i < (H - 3); i++)
+    for (u64 j = 0; j < ((W * 3) - 3); j++)
+      {
+        gx = convolve_unroll(&cframe[INDEX(i, j, W * 3)], f1, 3, 3);
+        gy = convolve_unroll(&cframe[INDEX(i, j, W * 3)], f2, 3, 3);
+            
+        mag = sqrt((gx * gx) + (gy * gy));
+        //drnm2 or srnm2 on a 2-element vector could be a good replacement (gradient norm)
+        
+        oframe[INDEX(i, j, W * 3)] = (mag > threshold) ? 255 : mag;
+      }
+}
 // Blas
 // Vectorization
 
 
 // 
 int run_benchmark(const i8 *title,
-		   void (*kernel)(u8 *, u8 *, f32), 
+		   void (*kernel)(u8 *restrict, u8 *restrict, f32), 
        i8 **paths);
 
 //
@@ -105,14 +145,15 @@ int main(int argc, char **argv)
   if (argc < 3)
     return printf("Usage: %s [raw input file] [raw output file]\n", argv[0]), 1;
   
-  run_benchmark("BASE", sobel_baseline,argv);
+  run_benchmark("RESTRICT", sobel_baseline,argv);
+  run_benchmark("UNROLL3", sobel_unroll, argv);
   
 
   return  0;
 }
 
 int run_benchmark(const i8 *title,
-		   void (*kernel)(u8 *, u8 *, f32), 
+		   void (*kernel)(u8 *restrict, u8 *restrict, f32), 
        i8 **paths)
 { 
   //Try bufferizing I/O here
@@ -209,12 +250,11 @@ int run_benchmark(const i8 *title,
   //2 arrays (input & output)
   mib_per_s = ((f64)(size << 1) / (1024.0 * 1024.0)) / elapsed_s;
   
-  //
-  FILE *dat = fopen("plot.dat", "w");
+  // bytes, min ns, max ns, avg ns, MiB/s, stddev
+  FILE *dat = fopen("dat/plot.dat", "a");
   if (!dat)
     return printf("Error: cannot open file 'plot.dat'\n"), 2;
-  // bytes, min ns, max ns, avg ns, MiB/s, stddev
-  fprintf(dat, "%10s %20llu; %15.3lf; %15.3lf; %15.3lf; %15.3lf; %15.3lf;\n",
+  fprintf(dat, "%10s; %10llu; %15.3lf; %15.3lf; %15.3lf; %15.3lf; %15.3lf;\n",
     title,
 	  (u64)(sizeof(u8) * H * W * 3) << 1,
 	  min,
