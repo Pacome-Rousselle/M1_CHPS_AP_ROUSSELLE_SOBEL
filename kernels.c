@@ -2,7 +2,7 @@
 
 /* Kernels */
 // Baseline
-i32 convolve_baseline(u8 *m, i32 *f, u64 fh, u64 fw)
+i32 convolve_baseline(u8 *restrict m, i32 *restrict f, u64 fh, u64 fw)
 {
   i32 r = 0;
 
@@ -14,7 +14,7 @@ i32 convolve_baseline(u8 *m, i32 *f, u64 fh, u64 fw)
 }
 
 //
-void sobel_baseline(u8 *cframe, u8 *oframe, f32 threshold)
+void sobel_baseline(u8 *restrict cframe, u8 *restrict oframe, f32 threshold)
 {
   i32 gx, gy;
   f32 mag = 0.0;
@@ -41,7 +41,7 @@ void sobel_baseline(u8 *cframe, u8 *oframe, f32 threshold)
 }
 
 // Unrolling the convolution
-i32 convolve_unroll(u8 *m, i32 *f, u64 fh, u64 fw)
+i32 convolve_unroll(u8 *restrict m, i32 *restrict f, u64 fh, u64 fw)
 {
   i32 r = 0;
 
@@ -55,7 +55,7 @@ i32 convolve_unroll(u8 *m, i32 *f, u64 fh, u64 fw)
 }
 
 //
-void sobel_unroll(u8 *cframe, u8 *oframe, f32 threshold)
+void sobel_unroll(u8 *restrict cframe, u8 *restrict oframe, f32 threshold)
 {
   i32 gx, gy;
   f32 mag = 0.0;
@@ -81,8 +81,8 @@ void sobel_unroll(u8 *cframe, u8 *oframe, f32 threshold)
       }
 }
 
-// Blas
-i32 convolve_right(u8 *m, i32 *f, u64 fh, u64 fw)
+// Ignoring zeros + unroll 3
+i32 convolve_right(u8 *restrict m, i32 *restrict f, u64 fh, u64 fw)
 {
   i32 r = 0;
 
@@ -95,22 +95,24 @@ i32 convolve_right(u8 *m, i32 *f, u64 fh, u64 fw)
   return r;
 }
 
-i32 convolve_bottom(u8 *m, i32 *f, u64 fh, u64 fw)
+i32 convolve_bottom(u8 *restrict m, i32 *restrict f, u64 fh, u64 fw)
 {
   i32 r = 0;
+  u64 invariant;
 
   for (u64 i = 0; i < fh; i++)
   {
-    r += m[INDEX(i, 0, W * 3 *(i*fh))] * f[INDEX(i, 0, fw)];
-    r += m[INDEX(i, 3, W * 3*(i*fh))] * f[INDEX(i, 1, fw)];
-    r += m[INDEX(i, 6, W * 3*(i*fh))] * f[INDEX(i, 2, fw)]; 
+    invariant = i*fh;
+    r += m[INDEX(i, 0, W * 3 *invariant)] * f[INDEX(i, 0, fw)];
+    r += m[INDEX(i, 3, W * 3 *invariant)] * f[INDEX(i, 1, fw)];
+    r += m[INDEX(i, 6, W * 3 *invariant)] * f[INDEX(i, 2, fw)]; 
   }
 
   return r;
 }
 
 //
-void sobel_maths(u8 *cframe, u8 *oframe, f32 threshold)
+void sobel_maths(u8 *restrict cframe, u8 *restrict oframe, f32 threshold)
 {
   i32 gx, gy;
   f32 mag = 0.0;
@@ -134,4 +136,3 @@ void sobel_maths(u8 *cframe, u8 *oframe, f32 threshold)
         oframe[INDEX(i, j, W * 3)] = (mag > threshold) ? 255 : mag;
       }
 }
-// Vectorization

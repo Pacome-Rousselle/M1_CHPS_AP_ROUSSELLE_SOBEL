@@ -1,9 +1,14 @@
 /*
   This code performs edge detection using a Sobel filter on a video stream meant as input to a neural network
 */
+#include <time.h>
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <emmintrin.h>
 
 //
-#include "kernels.h"
+#include "common.h"
 
 //Convert an image to its grayscale equivalent - better color precision
 void grayscale_weighted(u8 *frame)
@@ -39,10 +44,44 @@ void grayscale_sampled(u8 *frame)
     }
 }
 
-// 
-int run_benchmark(const i8 *title,
-		   void (*kernel)(u8 *, u8 *, f32), 
-       i8 **paths);
+//
+i32 convolve_baseline(u8 *m, i32 *f, u64 fh, u64 fw)
+{
+  i32 r = 0;
+
+  for (u64 i = 0; i < fh; i++)
+    for (u64 j = 0; j < fw; j++)
+      r += m[INDEX(i, j, fw)] * f[INDEX(i, j, fw)];
+  
+  return r;
+}
+
+//
+void sobel_baseline(u8 *cframe, u8 *oframe, f32 threshold)
+{
+  i32 gx, gy;
+  f32 mag = 0.0;
+
+  i32 f1[9] = { -1, 0, 1,
+		-2, 0, 2,
+		-1, 0, 1 }; //3x3 matrix
+  
+  i32 f2[9] = { -1, -2, -1,
+		0, 0, 0,
+		1, 2, 1 }; //3x3 matrix
+  
+  //
+  for (u64 i = 0; i < (H - 3); i++)
+    for (u64 j = 0; j < ((W * 3) - 3); j++)
+      {
+	gx = convolve_baseline(&cframe[INDEX(i, j, W * 3)], f1, 3, 3);
+	gy = convolve_baseline(&cframe[INDEX(i, j, W * 3)], f2, 3, 3);
+      
+	mag = sqrt((gx * gx) + (gy * gy));
+	
+	oframe[INDEX(i, j, W * 3)] = (mag > threshold) ? 255 : mag;
+      }
+}
 
 //
 int main(int argc, char **argv)
@@ -50,28 +89,6 @@ int main(int argc, char **argv)
   //
   if (argc < 3)
     return printf("Usage: %s [raw input file] [raw output file]\n", argv[0]), 1;
-
-  fprintf(stdout, "%10s; %10s; %15s; %15s; %15s; %10s; %26s;\n",
-  "Kernel",
-  "nb bytes",
-  "min ns",
-  "max ns",
-  "mean ns",
-  "MiB/s",
-  "stddev(%)");
-
-  run_benchmark("BASE", sobel_baseline,argv);
-  run_benchmark("UNROLL3", sobel_unroll, argv);
-  run_benchmark("NOZERO + UNROLL", sobel_maths,argv);
-
-  return  0;
-}
-
-int run_benchmark(const i8 *title,
-		   void (*kernel)(u8 *, u8 *, f32), 
-       i8 **paths)
-{ 
-  //Try bufferizing I/O here
   
   //Size of a frame
   u64 size = sizeof(u8) * H * W * 3;
@@ -90,59 +107,62 @@ int run_benchmark(const i8 *title,
   u8 *oframe = _mm_malloc(size, 32);
 
   //
-  FILE *fpi = fopen(paths[1], "rb"); 
-  FILE *fpo = fopen(paths[2], "wb");
+  FILE *fpi = fopen(argv[1], "rb"); 
+  FILE *fpo = fopen(argv[2], "wb");
 
   //
   if (!fpi)
-    return printf("Error: cannot open file '%s'\n", paths[1]), 2;
+    return printf("Error: cannot open file '%s'\n", argv[1]), 2;
   
   //
   if (!fpo)
-    return printf("Error: cannot open file '%s'\n", paths[2]), 2;
+    return printf("Error: cannot open file '%s'\n", argv[2]), 2;
   
   //Read & process video frames
   while ((nb_bytes = fread(cframe, sizeof(u8), H * W * 3, fpi)))
-  {
-    //
-    grayscale_weighted(cframe);
-
-    do
     {
-        
-      //Start 
-      clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
-      
-      //Kernel
-      kernel(cframe, oframe, 100.0);
-      //Stop
-      clock_gettime(CLOCK_MONOTONIC_RAW, &t2);
-        
-      //Nano seconds
-      elapsed_ns = (f64)(t2.tv_nsec - t1.tv_nsec);
-        
-    }
-    while (elapsed_ns <= 0.0);
-      
-    //Seconds
-    elapsed_s = elapsed_ns / 1e9;
-      
-    //2 arrays
-    mib_per_s = ((f64)(nb_bytes << 1) / (1024.0 * 1024.0)) / elapsed_s;
-      
-    //
-    if (samples_count < MAX_SAMPLES)
-	    samples[samples_count++] = elapsed_ns;
-      
-    //frame number; size in Bytes; elapsed ns; bytes per second
-    //fprintf(stdout, "%20llu; %20llu bytes; %15.3lf ns; %15.3lf MiB/s\n", frame_count, nb_bytes << 1, elapsed_ns, mib_per_s);
-      
-    // Write this frame to the output pipe
-    fwrite(oframe, sizeof(u8), H * W * 3, fpo);
+      //
+      grayscale_weighted(cframe);
 
-    //
-    frame_count++;
-  }
+      do
+	{
+	  
+	  //Start 
+	  clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
+	  
+	  //Put other versions here
+	  
+#if BASELINE
+	  sobel_baseline(cframe, oframe, 100.0);
+#endif
+	  //Stop
+	  clock_gettime(CLOCK_MONOTONIC_RAW, &t2);
+	  
+	  //Nano seconds
+	  elapsed_ns = (f64)(t2.tv_nsec - t1.tv_nsec);
+	  
+	}
+      while (elapsed_ns <= 0.0);
+      
+      //Seconds
+      elapsed_s = elapsed_ns / 1e9;
+      
+      //2 arrays
+      mib_per_s = ((f64)(nb_bytes << 1) / (1024.0 * 1024.0)) / elapsed_s;
+      
+      //
+      if (samples_count < MAX_SAMPLES)
+	samples[samples_count++] = elapsed_ns;
+      
+      //frame number; size in Bytes; elapsed ns; elapsed s; bytes per second
+      // fprintf(stdout, "%20llu; %20llu bytes; %15.3lf ns; %15.3lf MiB/s\n", frame_count, nb_bytes << 1, elapsed_ns, mib_per_s);
+      
+      // Write this frame to the output pipe
+      fwrite(oframe, sizeof(u8), H * W * 3, fpo);
+
+      //
+      frame_count++;
+    }
 
   //
   sort(samples, samples_count);
@@ -165,9 +185,9 @@ int run_benchmark(const i8 *title,
   //2 arrays (input & output)
   mib_per_s = ((f64)(size << 1) / (1024.0 * 1024.0)) / elapsed_s;
   
-  // bytes, min ns, max ns, avg ns, MiB/s, stddev
+  //
   fprintf(stdout, "%10s; %10llu; %15.3lf; %15.3lf; %15.3lf; %15.3lf; %15.3lf;\n",
-    title,
+    argv[3],
 	  (u64)(sizeof(u8) * H * W * 3) << 1,
 	  min,
 	  max,
@@ -182,6 +202,6 @@ int run_benchmark(const i8 *title,
   //
   fclose(fpi);
   fclose(fpo);
-  
-  return 0;
+
+  return  0;
 }
