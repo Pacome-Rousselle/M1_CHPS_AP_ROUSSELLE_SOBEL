@@ -28,6 +28,7 @@ ifeq ($(CC),gcc)
 else
 ifeq ($(CC),clang)
 	$(CC) -DBASELINE=1 $(CFLAGS) $(OFLAGS) $< common.c -o $@ $(MATHS)
+	$(CC) -DBASELINE=1 $(CFLAGS) $(OFLAGS) -funroll-loops $< common.c -o $@unroll $(MATHS)
 	$(CC) -DBASELINE=1 $(CFLAGS) -march=native -O2 $< common.c -o $@2 $(MATHS)
 	$(CC) -DBASELINE=1 $(CFLAGS) -march=native -O3 $< common.c -o $@3 $(MATHS)
 	$(CC) -DBASELINE=1 $(CFLAGS) -march=native -Ofast $< common.c -o $@fast $(MATHS)

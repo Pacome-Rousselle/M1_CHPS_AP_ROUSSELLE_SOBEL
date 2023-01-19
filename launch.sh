@@ -2,6 +2,7 @@
 make CC=gcc
 ./cvt_vid.sh v2r in/input.mp4 in/input.raw
 
+rm -f dat/basegcc.dat
 for base in $(ls base*); do
 ./$base in/input.raw out/output.raw $base >> dat/basegcc.dat
 done
@@ -14,6 +15,7 @@ make clean
 make CC=clang
 ./cvt_vid.sh v2r in/input.mp4 in/input.raw
 
+rm -f dat/baseclang.dat
 for base in $(ls base*); do
 ./$base in/input.raw out/output.raw $base >> dat/baseclang.dat
 done

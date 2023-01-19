@@ -15,3 +15,6 @@ void sobel_unroll(u8 *restrict cframe, u8 *restrict oframe, f32 threshold);
 i32 convolve_right(u8 *restrict m, i32 *restrict f, u64 fh, u64 fw);
 i32 convolve_bottom(u8 *restrict m, i32 *restrict f, u64 fh, u64 fw);
 void sobel_maths(u8 *restrict cframe, u8 *restrict oframe, f32 threshold);
+
+i32 convolve_omp(u8 *restrict m, i32 *restrict f, u64 fh, u64 fw);
+void sobel_omp(u8 *restrict cframe, u8 *restrict oframe, f32 threshold);
