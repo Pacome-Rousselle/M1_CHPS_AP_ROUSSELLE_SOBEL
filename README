@@ -1,3 +1,7 @@
+# New
+---------
+  All compilation, execution and plotting is managed by calling launch.sh with
+  `./launch.sh`
 # Intro
 -------
 
