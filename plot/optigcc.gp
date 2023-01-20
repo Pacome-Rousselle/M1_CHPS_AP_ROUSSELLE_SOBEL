@@ -14,7 +14,7 @@ set style fill solid border -1
 set boxwidth 0.5 absolute
 
 set yrange [0:2200]
-set xtic rotate by -45 scale 0 
+set xtic scale 0 
 
 plot "dat/gccsobeloptbase.dat" u  6:7:xtic(1) t "-01" lc "red",\
      "dat/gccsobelopt2.dat" u  6:7:xtic(1) t "-02" lc "green",\
