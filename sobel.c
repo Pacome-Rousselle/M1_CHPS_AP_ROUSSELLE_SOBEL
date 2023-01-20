@@ -64,7 +64,8 @@ int main(int argc, char **argv)
   run_benchmark("UNROLL3", sobel_unroll, argv);
   run_benchmark("NOZERO + UNROLL", sobel_maths,argv);
   run_benchmark("OMP", sobel_omp, argv);
-
+  run_benchmark("NOSQRT", sobel_square,argv);
+  run_benchmark("ALLOPTS", sobel_allopts,argv);
   return  0;
 }
 
