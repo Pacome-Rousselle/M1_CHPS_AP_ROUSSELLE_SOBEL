@@ -4,23 +4,28 @@ make CC=gcc
 
 rm -f dat/basegcc.dat
 for base in $(ls base*); do
-./$base in/input.raw out/output.raw $base >> dat/basegcc.dat
+./$base in/input.raw out/$base.raw $base >> dat/basegcc.dat
 done
 
-./sobel in/input.raw out/output.raw > dat/gcc.dat
+for sobel in $(ls sobelopt*); do
+./$sobel in/input.raw out/output.raw $sobel > dat/gcc$sobel.dat
+done
 
 ./cvt_vid.sh r2v out/output.raw out/output.mp4
-make clean
 
+make clean
+###########
 make CC=clang
 ./cvt_vid.sh v2r in/input.mp4 in/input.raw
 
 rm -f dat/baseclang.dat
 for base in $(ls base*); do
-./$base in/input.raw out/output.raw $base >> dat/baseclang.dat
+./$base in/input.raw out/$base.raw $base >> dat/baseclang.dat
 done
 
-./sobel in/input.raw out/output.raw > dat/clang.dat
+for sobel in $(ls sobelopt*); do
+./$sobel in/input.raw out/output.raw $sobel> dat/clang$sobel.dat
+done
 
 ./cvt_vid.sh r2v out/output.raw out/output.mp4
 
