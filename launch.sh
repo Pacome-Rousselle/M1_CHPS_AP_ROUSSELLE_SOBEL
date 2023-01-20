@@ -4,10 +4,12 @@ make CC=gcc
 
 rm -f dat/basegcc.dat
 for base in $(ls base*); do
+sudo cpupower -c 1 frequency-set -g performance
 ./$base in/input.raw out/$base.raw $base >> dat/basegcc.dat
 done
 
 for sobel in $(ls sobelopt*); do
+sudo cpupower -c 1 frequency-set -g performance
 ./$sobel in/input.raw out/output.raw $sobel > dat/gcc$sobel.dat
 done
 
@@ -20,10 +22,12 @@ make CC=clang
 
 rm -f dat/baseclang.dat
 for base in $(ls base*); do
+sudo cpupower -c 1 frequency-set -g performance
 ./$base in/input.raw out/$base.raw $base >> dat/baseclang.dat
 done
 
 for sobel in $(ls sobelopt*); do
+sudo cpupower -c 1 frequency-set -g performance
 ./$sobel in/input.raw out/output.raw $sobel> dat/clang$sobel.dat
 done
 
