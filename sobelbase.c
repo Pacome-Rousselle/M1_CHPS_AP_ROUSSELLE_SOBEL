@@ -186,6 +186,14 @@ int main(int argc, char **argv)
   mib_per_s = ((f64)(size << 1) / (1024.0 * 1024.0)) / elapsed_s;
   
   //
+  fprintf(stdout, "%10s; %10s; %15s; %15s; %15s; %10s; %26s;\n",
+  "Kernel",
+  "nb bytes",
+  "min ns",
+  "max ns",
+  "mean ns",
+  "MiB/s",
+  "stddev(%)");
   fprintf(stdout, "%10s; %10llu; %15.3lf; %15.3lf; %15.3lf; %15.3lf; %15.3lf;\n",
     argv[3],
 	  (u64)(sizeof(u8) * H * W * 3) << 1,

@@ -144,7 +144,7 @@ i32 convolve_omp(u8 *restrict m, i32 *restrict f, u64 fh, u64 fw)
 {
   i32 r = 0;
 
-  #pragma omp parallel
+  #pragma omp parallel simd
   for (u64 i = 0; i < fh; i++)
     for (u64 j = 0; j < fw; j++)
       r += m[INDEX(i, j * 3, W * 3)] * f[INDEX(i, j, fw)];
@@ -166,7 +166,6 @@ void sobel_omp(u8 *restrict cframe, u8 *restrict oframe, f32 threshold)
 		0, 0, 0,
 		1, 2, 1 }; //3x3 matrix
   
-  #pragma omp parallel
   for (u64 i = 0; i < (H - 3); i++)
     for (u64 j = 0; j < ((W * 3) - 3); j++)
       {

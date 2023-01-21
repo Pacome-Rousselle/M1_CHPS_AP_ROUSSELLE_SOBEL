@@ -2,11 +2,8 @@
 make CC=gcc
 ./cvt_vid.sh v2r in/input.mp4 in/input.raw
 
-rm -f dat/basegcc.dat
-for base in $(ls base*); do
 sudo cpupower -c 1 frequency-set -g performance
-./$base in/input.raw out/$base.raw $base >> dat/basegcc.dat
-done
+./gccsobelbase in/input.raw out/output.raw BASE > dat/gccsobelbase.dat
 
 for sobel in $(ls sobelopt*); do
 sudo cpupower -c 1 frequency-set -g performance
@@ -20,11 +17,8 @@ make clean
 make CC=clang
 ./cvt_vid.sh v2r in/input.mp4 in/input.raw
 
-rm -f dat/baseclang.dat
-for base in $(ls base*); do
 sudo cpupower -c 1 frequency-set -g performance
-./$base in/input.raw out/$base.raw $base >> dat/baseclang.dat
-done
+./clangsobelbase in/input.raw out/output.raw BASE > dat/clangsobelbase.dat
 
 for sobel in $(ls sobelopt*); do
 sudo cpupower -c 1 frequency-set -g performance

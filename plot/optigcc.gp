@@ -13,11 +13,9 @@ set style histogram errorbars gap 1 lw 2
 set style fill solid border -1
 set boxwidth 0.5 absolute
 
-set yrange [0:2200]
+set yrange [0:1500]
 set xtic scale 0 
 
-plot "dat/gccsobeloptbase.dat" u  6:7:xtic(1) t "-01" lc "red",\
-     "dat/gccsobelopt2.dat" u  6:7:xtic(1) t "-02" lc "green",\
+plot "dat/gccsobelbase.dat" u  6:7:xtic(1) t "-01" lc "red",\
      "dat/gccsobelopt3.dat" u  6:7:xtic(1) t "-03" lc "blue",\
-     "dat/gccsobeloptfast.dat" u  6:7:xtic(1) t "-Ofast" lc "yellow",\
      "dat/gccsobeloptunroll.dat" u  6:7:xtic(1) t "-funroll-loops" lc "purple"
