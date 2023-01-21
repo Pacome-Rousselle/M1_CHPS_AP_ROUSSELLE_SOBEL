@@ -1,7 +1,10 @@
 # New
 ---------
+  This repository contains the code for the project, an analysis report (Report.pdf)
+  and a one-page summary of paper.pdf (Summary.pdf).
+  
   All compilation, execution and plotting is managed by calling launch.sh with
-  `./launch.sh`
+  ./launch.sh.
 # Intro
 -------
 
