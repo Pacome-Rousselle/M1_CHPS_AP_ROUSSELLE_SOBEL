@@ -1,0 +1,2 @@
+    Kernel;   nb bytes;          min ns;          max ns;         mean ns;      MiB/s;                  stddev(%);
+      BASE;    5529600;    22621468.000;    32584143.000;    25316729.811;         208.299;           5.368;
